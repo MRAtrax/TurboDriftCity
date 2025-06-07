@@ -1,0 +1,308 @@
+
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>Turbo Drift City - Open Wereld</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: linear-gradient(#000011, #000);
+      color: white;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .game-area {
+      position: relative;
+      width: 3000px;
+      height: 3000px;
+      background: #111;
+    }
+    .road {
+      position: absolute;
+      background: #222;
+      box-shadow: 0 0 10px #555;
+    }
+    .road.vertical {
+      width: 120px;
+      height: 100%;
+    }
+    .road.horizontal {
+      height: 120px;
+      width: 100%;
+    }
+    .intersection {
+      width: 120px;
+      height: 120px;
+      background: #333;
+      position: absolute;
+    }
+    .building {
+      position: absolute;
+      width: 120px;
+      height: 150px;
+      background: #111;
+      border: 2px solid #444;
+      color: #0ff;
+      text-align: center;
+      padding-top: 10px;
+      font-weight: bold;
+      box-shadow: 0 0 20px #0ff;
+    }
+    .neon-sign {
+      position: absolute;
+      top: -30px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #ff00ff;
+      font-size: 18px;
+      font-weight: bold;
+      text-shadow: 0 0 10px #ff00ff, 0 0 20px #ff00ff;
+    }
+    .car, .player, .npc {
+      position: absolute;
+      width: 60px;
+      height: 100px;
+      background: red;
+      border-radius: 10px;
+      box-shadow: 0 0 20px red, 0 0 50px red;
+      z-index: 10;
+      transform-origin: center center;
+    }
+    .player {
+      background: yellow;
+      width: 40px;
+      height: 80px;
+      border-radius: 20px;
+      display: none;
+      animation: walk-cycle 0.5s steps(2) infinite;
+    }
+    .npc {
+      background: lime;
+      width: 40px;
+      height: 80px;
+      border-radius: 20px;
+      animation: walk-cycle 1s steps(2) infinite;
+      text-align: center;
+      line-height: 80px;
+      font-size: 20px;
+    }
+    @keyframes walk-cycle {
+      0% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+      100% { transform: translateY(0); }
+    }
+    .hud {
+      position: fixed;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .speed {
+      position: absolute;
+      bottom: 20px;
+      right: 30px;
+      font-size: 36px;
+      color: cyan;
+      text-shadow: 0 0 10px cyan;
+    }
+    .minimap {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      width: 200px;
+      height: 200px;
+      background: rgba(0,0,0,0.6);
+      border: 2px solid #0ff;
+      box-shadow: 0 0 10px #0ff;
+      overflow: hidden;
+    }
+    .minimap-car {
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      background: red;
+      z-index: 20;
+      border-radius: 50%;
+      transform-origin: center center;
+    }
+    .shop-menu {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 300px;
+      background: rgba(0, 0, 0, 0.8);
+      border: 2px solid #0ff;
+      box-shadow: 0 0 20px #0ff;
+      padding: 20px;
+      display: none;
+      color: white;
+      z-index: 999;
+    }
+    .shop-menu h2 {
+      margin-top: 0;
+      color: #0ff;
+    }
+    .shop-item {
+      margin: 10px 0;
+      padding: 10px;
+      background: #222;
+      border: 1px solid #555;
+      cursor: pointer;
+    }
+    .shop-item:hover {
+      background: #333;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-area" id="gameArea">
+    <div class="road vertical" style="left: 900px; top: 0;"></div>
+    <div class="road horizontal" style="top: 1500px; left: 0;"></div>
+    <div class="intersection" style="left: 900px; top: 1500px;"></div>
+
+    <div class="building" style="left: 780px; top: 1400px;" onclick="openShop()">
+      <div class="neon-sign">TESLA SHOP</div>
+      Tesla Store
+    </div>
+    <div class="building" style="left: 1080px; top: 1400px;">
+      <div class="neon-sign">GARAGE PRO</div>
+      Garage
+    </div>
+
+    <div class="car" id="car" style="top: 1520px; left: 920px;"></div>
+    <div class="player" id="player" style="top: 1520px; left: 920px;"></div>
+    <div class="npc" style="top: 1600px; left: 1000px;"></div>
+    <div class="npc" style="top: 1400px; left: 860px;"></div>
+  </div>
+
+  <div class="hud">
+    <div class="speed" id="speed">0 km/h</div>
+    <div class="minimap">
+      <div class="minimap-car" id="minimapCar"></div>
+    </div>
+  </div>
+
+  <div class="shop-menu" id="shopMenu">
+    <h2>Winkel</h2>
+    <div class="shop-item">Turbo Upgrade - €500</div>
+    <div class="shop-item">Neon Onderverlichting - €300</div>
+    <div class="shop-item">Nieuwe Velgen - €400</div>
+    <div class="shop-item" onclick="closeShop()">Sluiten</div>
+  </div>
+
+  <script>
+    const car = document.getElementById("car");
+    const player = document.getElementById("player");
+    const speedEl = document.getElementById("speed");
+    const minimapCar = document.getElementById("minimapCar");
+    const npcs = document.querySelectorAll(".npc");
+    const shopMenu = document.getElementById("shopMenu");
+
+    let speed = 0;
+    let vx = 0;
+    let vy = 0;
+    let angle = 0;
+    let driving = true;
+
+    function updateSpeed() {
+      speed = Math.sqrt(vx * vx + vy * vy) * 10;
+      speedEl.textContent = `${Math.floor(speed)} km/h`;
+    }
+
+    function updateMinimap() {
+      const scale = 0.06;
+      const active = driving ? car : player;
+      minimapCar.style.left = active.offsetLeft * scale + "px";
+      minimapCar.style.top = active.offsetTop * scale + "px";
+      minimapCar.style.transform = `rotate(${angle}deg)`;
+    }
+
+    function checkNpcProximity() {
+      const playerRect = player.getBoundingClientRect();
+
+      npcs.forEach(npc => {
+        const npcRect = npc.getBoundingClientRect();
+        const dx = npcRect.left - playerRect.left;
+        const dy = npcRect.top - playerRect.top;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < 100 && !driving) {
+          npc.style.background = "orange";
+          npc.textContent = "👋";
+        } else {
+          npc.style.background = "lime";
+          npc.textContent = "";
+        }
+      });
+    }
+
+    function openShop() {
+      if (!driving) {
+        shopMenu.style.display = "block";
+      }
+    }
+
+    function closeShop() {
+      shopMenu.style.display = "none";
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "e") {
+        driving = !driving;
+        car.style.display = driving ? "block" : "none";
+        player.style.display = driving ? "none" : "block";
+        player.style.top = car.style.top;
+        player.style.left = car.style.left;
+        vx = 0;
+        vy = 0;
+        return;
+      }
+
+      if (driving) {
+        if (e.key === "ArrowUp") {
+          vy = -2;
+          angle = 0;
+        }
+        if (e.key === "ArrowDown") {
+          vy = 2;
+          angle = 180;
+        }
+        if (e.key === "ArrowLeft") {
+          vx = -2;
+          angle = -90;
+        }
+        if (e.key === "ArrowRight") {
+          vx = 2;
+          angle = 90;
+        }
+        car.style.transform = `rotate(${angle}deg)`;
+      } else {
+        if (e.key === "ArrowUp") vy = -1.5;
+        if (e.key === "ArrowDown") vy = 1.5;
+        if (e.key === "ArrowLeft") vx = -1.5;
+        if (e.key === "ArrowRight") vx = 1.5;
+      }
+    });
+
+    document.addEventListener("keyup", (e) => {
+      if (["ArrowUp","ArrowDown"].includes(e.key)) vy = 0;
+      if (["ArrowLeft","ArrowRight"].includes(e.key)) vx = 0;
+    });
+
+    function gameLoop() {
+      const active = driving ? car : player;
+      active.style.top = `${active.offsetTop + vy}px`;
+      active.style.left = `${active.offsetLeft + vx}px`;
+      updateSpeed();
+      updateMinimap();
+      checkNpcProximity();
+      requestAnimationFrame(gameLoop);
+    }
+
+    updateSpeed();
+    gameLoop();
+  </script>
+</body>
+</html>
